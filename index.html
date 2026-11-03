@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#10151b">
+<title>رماد آخر شمس — Ashes of the Last Sun</title>
+<style>
+:root{color-scheme:dark;--panel:rgba(13,19,25,.88);--line:#53616d;--gold:#ffb35a;--text:#edf2f5}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10151b;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:none}
+#game{position:fixed;inset:0}canvas{display:block;width:100%;height:100%}
+#hud{position:fixed;inset:0;pointer-events:none;padding:10px;display:flex;flex-direction:column;justify-content:space-between}
+.top{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 11px;backdrop-filter:blur(6px);box-shadow:0 4px 18px #0005}
+.brand{font-weight:900;color:var(--gold);font-size:15px}.small{font-size:12px;opacity:.9}.stats{display:grid;grid-template-columns:repeat(2,minmax(105px,1fr));gap:5px;min-width:220px}
+.stat{font-size:12px}.bar{height:5px;background:#34414b;border-radius:5px;margin-top:4px;overflow:hidden}.fill{height:100%;width:100%;background:#e8a75c;transition:width .2s}
+#message{align-self:center;max-width:min(92vw,420px);text-align:center;font-size:13px;min-height:18px}
+.bottom{display:flex;align-items:end;justify-content:space-between;gap:10px}
+#joystick{width:116px;height:116px;border:2px solid #d9e1e766;border-radius:50%;background:#17222c99;position:relative;pointer-events:auto;touch-action:none}
+#stick{position:absolute;width:43px;height:43px;border-radius:50%;background:#d7e0e0bb;border:2px solid #fff9;left:34px;top:34px}
+.actions{display:grid;grid-template-columns:repeat(2, minmax(72px,90px));gap:7px;pointer-events:auto}
+button{border:1px solid #71808b;background:#17222cee;color:white;border-radius:12px;padding:11px 8px;font-size:12px;font-weight:700;min-height:44px;touch-action:manipulation}
+button:active{background:#80552c}button:disabled{opacity:.4}
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#080c10cc;padding:18px;z-index:5}
+#menu .card{width:min(100%,430px);max-height:92vh;overflow:auto;background:#121b23;border:1px solid #65737e;border-radius:18px;padding:18px}
+h1{font-size:24px;margin:0 0 5px;color:var(--gold)}h2{font-size:16px;margin:15px 0 7px}
+p,li{font-size:13px;line-height:1.6}ul{padding-right:20px}
+.menuBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.wide{grid-column:1/-1}
+#toast{position:fixed;top:48%;left:50%;transform:translate(-50%,-50%);background:#101820ee;padding:10px 16px;border-radius:12px;z-index:10;display:none;text-align:center;border:1px solid #72818c;pointer-events:none}
+@media(min-width:760px){.stats{grid-template-columns:repeat(3,minmax(110px,1fr))}#joystick{width:135px;height:135px}#stick{left:43px;top:43px}.actions{grid-template-columns:repeat(3,90px)}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+ <div class="top">
+  <div class="panel"><div class="brand">رماد آخر شمس</div><div class="small" id="dayLabel">اليوم 1 • ضوء متبقٍ: 100%</div><div class="small" id="weather">الجو: بارد</div></div>
+  <div class="panel stats">
+   <div class="stat">الصحة <b id="hpText">100</b><div class="bar"><div class="fill" id="hpBar"></div></div></div>
+   <div class="stat">الحرارة <b id="tempText">36°</b><div class="bar"><div class="fill" id="tempBar"></div></div></div>
+   <div class="stat">الجوع <b id="hungerText">100</b><div class="bar"><div class="fill" id="hungerBar"></div></div></div>
+   <div class="stat">العطش <b id="thirstText">100</b><div class="bar"><div class="fill" id="thirstBar"></div></div></div>
+   <div class="stat">الخشب <b id="woodText">0</b> • الحجر <b id="stoneText">0</b></div>
+   <div class="stat">الطعام <b id="foodText">0</b> • الماء <b id="waterText">0</b></div>
+  </div>
+ </div>
+ <div id="message" class="panel">اجمع الموارد واستعد للبرد. اقترب من شجرة أو صخرة.</div>
+ <div class="bottom">
+  <div id="joystick" aria-label="عصا الحركة"><div id="stick"></div></div>
+  <div class="actions">
+   <button id="gather">جمع</button><button id="attack">هجوم</button><button id="eat">أكل</button>
+   <button id="drink">شرب</button><button id="fire">نار مخيم</button><button id="build">بناء مأوى</button>
+   <button id="save">حفظ</button><button id="pause">القائمة</button>
+  </div>
+ </div>
+</div>
+<div id="toast"></div>
+<div id="menu"><div class="card">
+ <h1>رماد آخر شمس</h1><div class="small">نموذج بقاء ثلاثي الأبعاد — إصدار تجريبي</div>
+ <p>اجمع الخشب والحجر والطعام، حافظ على دفئك، وابنِ نارًا ومأوى قبل أن يشتد البرد. تظهر الوحوش ليلًا.</p>
+ <h2>التحكم</h2><ul><li>الموبايل: حرّك العصا على اليسار واستخدم الأزرار.</li><li>الكمبيوتر: WASD أو الأسهم للحركة، E للجمع، Space للهجوم، F للأكل، R للشرب.</li><li>اقترب من المورد ثم اضغط «جمع».</li></ul>
+ <div class="menuBtns"><button id="start" class="wide">ابدأ / متابعة</button><button id="reset">عالم جديد</button><button id="sound">الصوت: مغلق</button><button id="quality">الجودة: تلقائي</button></div>
+ <p class="small">نسخة HTML تجريبية تعتمد على اتصال الإنترنت لتحميل مكتبة Three.js من CDN. الحفظ محلي على نفس المتصفح والجهاز. لا يوجد لعب جماعي أو حسابات في هذا النموذج.</p>
+ </div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let scene,camera,renderer,clock,player,ground,sun,ambient;
+let running=false,dead=false,lowQuality=false,soundOn=false,audioCtx=null;
+let joystick={x:0,y:0},keys={},joyTouch=null;
+const world={objects:[],fires:[],enemies:[],daySeconds:0,day:1,sunLife:100,worldTemp:8,seed:0.314159};
+const state={hp:100,temp:36,hunger:100,thirst:100,wood:0,stone:0,food:0,water:0,x:0,z:0,rotation:0, shelter:false, kills:0};
+const SAVE='ashes_last_sun_v2';
+function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').style.display='none',1800)}
+function message(msg){$('message').textContent=msg}
+function beep(freq=440,dur=.08){if(!soundOn)return;try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;g.gain.value=.04;o.connect(g);g.connect(audioCtx.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.stop(audioCtx.currentTime+dur)}catch(e){}}
+function init(){
+ if(!window.THREE){$('menu').style.display='flex';$('menu').querySelector('p.small').textContent='تعذر تحميل Three.js. تأكد من اتصال الإنترنت ثم أعد فتح الملف.';return}
+ scene=new THREE.Scene();scene.background=new THREE.Color(0x788b91);scene.fog=new THREE.Fog(0x788b91,24,90);
+ camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,180);
+ renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;$('game').appendChild(renderer.domElement);
+ clock=new THREE.Clock();
+ ambient=new THREE.HemisphereLight(0xbfd5e1,0x40392e,1.15);scene.add(ambient);
+ sun=new THREE.DirectionalLight(0xffc27a,1.4);sun.position.set(-20,35,-10);sun.castShadow=true;sun.shadow.mapSize.set(512,512);sun.shadow.camera.left=-35;sun.shadow.camera.right=35;sun.shadow.camera.top=35;sun.shadow.camera.bottom=-35;scene.add(sun);
+ ground=new THREE.Mesh(new THREE.PlaneGeometry(220,220),new THREE.MeshStandardMaterial({color:0x555b4b,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+ createPlayer();generateWorld();loadGame();window.addEventListener('resize',resize);
+ renderer.domElement.addEventListener('pointerdown',()=>{if(running)beep(220,.03)});
+ renderer.setAnimationLoop(loop);updateHud();
+}
+function createPlayer(){
+ player=new THREE.Group();
+ const body=new THREE.Mesh(new THREE.BoxGeometry(.75,1.25,.48),new THREE.MeshStandardMaterial({color:0x596d7b,roughness:.9}));body.position.y=.95;body.castShadow=true;player.add(body);
+ const head=new THREE.Mesh(new THREE.BoxGeometry(.52,.52,.52),new THREE.MeshStandardMaterial({color:0xc69b78}));head.position.y=1.83;head.castShadow=true;player.add(head);
+ const pack=new THREE.Mesh(new THREE.BoxGeometry(.42,.58,.2),new THREE.MeshStandardMaterial({color:0x44372b}));pack.position.set(0,1.05,-.31);player.add(pack);
+ player.position.set(0,0,0);scene.add(player);
+}
+function rand(seed){let x=Math.sin(seed*127.1+world.seed*311.7)*43758.5453;return x-Math.floor(x)}
+function addTree(x,z){
+ const g=new THREE.Group();
+ const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22,.32,2.4,6),new THREE.MeshStandardMaterial({color:0x59402c}));trunk.position.y=1.2;trunk.castShadow=true;g.add(trunk);
+ for(let i=0;i<3;i++){let crown=new THREE.Mesh(new THREE.ConeGeometry(1.15-i*.15,1.7,6),new THREE.MeshStandardMaterial({color:[0x354e3b,0x3e5940,0x4c6042][i]}));crown.position.y=2.1+i*.65;crown.castShadow=true;g.add(crown)}
+ g.position.set(x,0,z);scene.add(g);world.objects.push({kind:'tree',mesh:g,x,z,hp:2,alive:true});
+}
+function addRock(x,z){
+ const mesh=new THREE.Mesh(new THREE.DodecahedronGeometry(.65,0),new THREE.MeshStandardMaterial({color:0x777d7b,roughness:1}));mesh.position.set(x,.48,z);mesh.scale.set(1,rand(x+z)+.65,1.1);mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);world.objects.push({kind:'rock',mesh,x,z,hp:2,alive:true});
+}
+function addBush(x,z){
+ const g=new THREE.Group();for(let i=0;i<4;i++){let m=new THREE.Mesh(new THREE.IcosahedronGeometry(.27,0),new THREE.MeshStandardMaterial({color:0x596b42}));m.position.set((rand(x*9+i)-.5)*.5,.25+(rand(z*8+i)*.2),(rand(z*4+i)-.5)*.5);g.add(m)}g.position.set(x,0,z);scene.add(g);world.objects.push({kind:'bush',mesh:g,x,z,hp:1,alive:true});
+}
+function generateWorld(){
+ for(let i=0;i<105;i++){let a=rand(i+1)*Math.PI*2,r=8+rand(i+301)*72,x=Math.cos(a)*r,z=Math.sin(a)*r;if(Math.hypot(x,z)<7)continue;let v=rand(i+700);if(v<.55)addTree(x,z);else if(v<.84)addRock(x,z);else addBush(x,z)}
+}
+function dist(a,b){return Math.hypot(a.x-b.x,a.z-b.z)}
+function nearest(list,maxDist=3){let best=null,bd=maxDist;for(const o of list){if(o.alive===false)continue;let d=dist(state,o);if(d<bd){bd=d;best=o}}return best}
+function gather(){
+ if(!running||dead)return;
+ let o=nearest(world.objects,3.4);
+ if(!o){message('اقترب من شجرة أو صخرة أو شجيرة ثم اجمع.');return}
+ if(o.kind==='tree'){state.wood+=3;o.hp--;message('جمعت 3 خشب.');}
+ else if(o.kind==='rock'){state.stone+=2;o.hp--;message('جمعت حجرين.');}
+ else {state.food+=1;message('جمعت طعامًا بريًا واحدًا.');o.hp=0}
+ beep(560);
+ if(o.hp<=0){o.alive=false;scene.remove(o.mesh)}
+ updateHud();saveGame(false);
+}
+function makeFire(){
+ if(!running||dead)return;
+ if(state.wood<4||state.stone<2){message('تحتاج 4 خشب و2 حجر لإشعال نار مخيم.');return}
+ state.wood-=4;state.stone-=2;
+ const g=new THREE.Group();
+ const mat=new THREE.MeshStandardMaterial({color:0x5c4330});
+ for(let i=0;i<3;i++){let log=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,1.1,5),mat);log.rotation.z=Math.PI/2;log.rotation.y=i*Math.PI/3;log.position.y=.13;g.add(log)}
+ const flame=new THREE.Mesh(new THREE.ConeGeometry(.27,.8,6),new THREE.MeshBasicMaterial({color:0xff762b}));flame.position.y=.55;g.add(flame);
+ const light=new THREE.PointLight(0xff7b32,1.7,9);light.position.y=1;g.add(light);g.position.set(state.x,0,state.z);scene.add(g);
+ world.fires.push({mesh:g,x:state.x,z:state.z,time:150,flame,light});message('أشعلت نارًا؛ اقترب منها لتدفأ.');beep(330,.16);updateHud();saveGame(false);
+}
+function buildShelter(){
+ if(!running||dead)return;
+ if(state.wood<8||state.stone<3){message('تحتاج 8 خشب و3 حجر لبناء مأوى.');return}
+ state.wood-=8;state.stone-=3;state.shelter=true;
+ const g=new THREE.Group(),woodmat=new THREE.MeshStandardMaterial({color:0x60452e});
+ const floor=new THREE.Mesh(new THREE.BoxGeometry(4,.18,4),woodmat);floor.position.y=.1;g.add(floor);
+ for(let x of [-1.8,1.8])for(let z of [-1.8,1.8]){let post=new THREE.Mesh(new THREE.BoxGeometry(.18,2.2,.18),woodmat);post.position.set(x,1.2,z);g.add(post)}
+ const roof=new THREE.Mesh(new THREE.ConeGeometry(3,1.2,4),new THREE.MeshStandardMaterial({color:0x484d45}));roof.rotation.y=Math.PI/4;roof.position.y=2.8;g.add(roof);g.position.set(state.x+2,0,state.z+1);scene.add(g);
+ world.objects.push({kind:'shelter',mesh:g,x:state.x+2,z:state.z+1,alive:true,hp:999});message('بنيت مأوى. يقل تأثير البرد وأنت قريب منه.');beep(260,.15);updateHud();saveGame(false);
+}
+function addEnemy(x,z){
+ const g=new THREE.Group();
+ const body=new THREE.Mesh(new THREE.BoxGeometry(.9,1.1,.65),new THREE.MeshStandardMaterial({color:0x342d45,roughness:1}));body.position.y=.85;body.castShadow=true;g.add(body);
+ const eyes=new THREE.Mesh(new THREE.BoxGeometry(.45,.12,.08),new THREE.MeshBasicMaterial({color:0xff3a26}));eyes.position.set(0,1.05,.34);g.add(eyes);
+ const head=new THREE.Mesh(new THREE.BoxGeometry(.62,.55,.58),new THREE.MeshStandardMaterial({color:0x514254}));head.position.y=1.55;g.add(head);
+ g.position.set(x,0,z);scene.add(g);world.enemies.push({mesh:g,x,z,hp:3,attack:0,alive:true,speed:1.15});
+}
+function spawnNightEnemy(){
+ if(world.enemies.filter(e=>e.alive).length>=5)return;
+ let a=Math.random()*Math.PI*2,r=13+Math.random()*8;addEnemy(state.x+Math.cos(a)*r,state.z+Math.sin(a)*r);
+}
+function attack(){
+ if(!running||dead)return;
+ let e=nearest(world.enemies,3.1);if(!e){message('لا يوجد وحش قريب. الوحوش تظهر عندما يضعف ضوء الشمس.');return}
+ e.hp--;beep(130,.12);
+ if(e.hp<=0){e.alive=false;scene.remove(e.mesh);state.food+=1;state.kills++;message('هزمت الوحش! حصلت على طعام واحد.')}
+ else message('أصبت الوحش. ضربة أخرى قد تهزمه.');
+ updateHud();saveGame(false);
+}
+function eat(){if(state.food<=0){message('ليس لديك طعام. اجمع الشجيرات أو اهزم وحشًا.');return}state.food--;state.hunger=clamp(state.hunger+32,0,100);state.hp=clamp(state.hp+3,0,100);message('أكلت واستعدت بعض الجوع.');beep(620);updateHud()}
+function drink(){if(state.water<=0){message('ليس لديك ماء. في هذا النموذج يمكنك العثور على زجاجة ماء من صندوق الإمدادات قرب منطقة البداية.');return}state.water--;state.thirst=clamp(state.thirst+40,0,100);message('شربت ماءً.');beep(700);updateHud()}
+function addSupplyCrate(){
+ const g=new THREE.Group();const box=new THREE.Mesh(new THREE.BoxGeometry(1,0.8,1),new THREE.MeshStandardMaterial({color:0x9b7041}));box.position.y=.4;box.castShadow=true;g.add(box);
+ const band=new THREE.Mesh(new THREE.BoxGeometry(1.02,.12,1.02),new THREE.MeshStandardMaterial({color:0x383e42}));band.position.y=.42;g.add(band);g.position.set(3,0,-4);scene.add(g);
+ world.objects.push({kind:'crate',mesh:g,x:3,z:-4,hp:1,alive:true});
+}
+function interactCrate(o){state.water+=3;state.food+=2;state.wood+=2;o.alive=false;scene.remove(o.mesh);message('فتحت صندوق الإمدادات: ماء وطعام وخشب!');updateHud()}
+function interactGather(){const o=nearest(world.objects,3.4);if(o&&o.kind==='crate'){interactCrate(o);return}gather()}
+function updateSurvival(dt){
+ world.daySeconds+=dt;
+ // A full light cycle lasts about 8 minutes, rather than rapidly exhausting the sun.
+ world.sunLife=clamp(100-world.daySeconds/480*100,0,100);
+ world.worldTemp=8-world.daySeconds/480*18;
+ const night=world.sunLife<35;
+ if(night&&Math.random()<dt*.08)spawnNightEnemy();
+ state.hunger=clamp(state.hunger-dt*.16,0,100);state.thirst=clamp(state.thirst-dt*.24,0,100);
+ let nearFire=world.fires.some(f=>f.time>0&&Math.hypot(state.x-f.x,state.z-f.z)<5);
+ let nearShelter=world.objects.some(o=>o.kind==='shelter'&&o.alive&&Math.hypot(state.x-o.x,state.z-o.z)<4);
+ let targetTemp=36+world.worldTemp*.45+(nearFire?17:0)+(nearShelter?4:0);
+ state.temp=clamp(state.temp+(targetTemp-state.temp)*dt*.045,0,42);
+ if(state.hunger<=0||state.thirst<=0)state.hp-=dt*.45;
+ if(state.temp<30)state.hp-=dt*.7;
+ if(state.temp>40)state.hp-=dt*.4;
+ state.hp=clamp(state.hp,0,100);
+ for(const f of world.fires){f.time-=dt;f.flame.scale.y=.7+Math.random()*.6;f.light.intensity=1.2+Math.random()*.7;if(f.time<=0){scene.remove(f.mesh);f.dead=true}}
+ world.fires=world.fires.filter(f=>!f.dead);
+ for(const e of world.enemies){if(!e.alive)continue;let dx=state.x-e.x,dz=state.z-e.z,d=Math.hypot(dx,dz);if(d>0.01&&d<22){e.x+=dx/d*e.speed*dt;e.z+=dz/d*e.speed*dt;e.mesh.position.set(e.x,0,e.z);e.mesh.rotation.y=Math.atan2(dx,dz)}if(d<1.35){e.attack-=dt;if(e.attack<=0){state.hp-=7;e.attack=1.6;message('الوحش يهاجمك! ابتعد أو هاجمه.');beep(90,.12)}}}
+ if(state.hp<=0&&!dead){dead=true;running=false;$('menu').style.display='flex';$('menu').querySelector('h1').textContent='انتهت المحاولة';message('انتهت المحاولة — ابدأ من جديد أو حمّل آخر حفظ.');}
+ if(world.sunLife<30){scene.background.set(0x222a3a);scene.fog.color.set(0x222a3a);sun.intensity=.15;ambient.intensity=.5;$('weather').textContent='الجو: ليل شديد البرودة'}else{scene.background.set(0x788b91);scene.fog.color.set(0x788b91);sun.intensity=.25+world.sunLife/100*1.15;ambient.intensity=.45+world.sunLife/100*.7;$('weather').textContent=world.worldTemp<0?'الجو: متجمد':world.worldTemp<8?'الجو: بارد':'الجو: معتدل'}
+ if(Math.floor(world.daySeconds/480)+1>world.day){world.day++;world.daySeconds=0;world.sunLife=100;world.worldTemp=8;message('بدأ يوم جديد، لكن الشمس تضعف في كل دورة.')}
+ updateHud();
+}
+function updateHud(){
+ const set=(id,v)=>$(id).textContent=v;
+ set('hpText',Math.round(state.hp));set('tempText',Math.round(state.temp)+'°');set('hungerText',Math.round(state.hunger));set('thirstText',Math.round(state.thirst));set('woodText',state.wood);set('stoneText',state.stone);set('foodText',state.food);set('waterText',state.water);
+ const bar=(id,v,max=100)=>$(id).style.width=clamp(v/max*100,0,100)+'%';
+ bar('hpBar',state.hp);bar('tempBar',state.temp,42);bar('hungerBar',state.hunger);bar('thirstBar',state.thirst);
+ set('dayLabel','اليوم '+world.day+' • ضوء متبقٍ: '+Math.round(world.sunLife)+'%');
+}
+function saveGame(show=true){
+ try{const data={seed:world.seed,state,day:world.day,daySeconds:world.daySeconds,sunLife:world.sunLife,worldTemp:world.worldTemp,objects:world.objects.filter(o=>o.alive).map(o=>({kind:o.kind,x:o.x,z:o.z,hp:o.hp})),fires:world.fires.map(f=>({x:f.x,z:f.z,time:f.time})),enemies:world.enemies.filter(e=>e.alive).map(e=>({x:e.x,z:e.z,hp:e.hp}))};localStorage.setItem(SAVE,JSON.stringify(data));if(show)toast('تم حفظ العالم على هذا الجهاز.')}catch(e){if(show)toast('تعذر الحفظ في هذا المتصفح.')}
+}
+function loadGame(){
+ try{const raw=localStorage.getItem(SAVE);if(!raw){addSupplyCrate();return}const d=JSON.parse(raw);if(typeof d.seed==='number')world.seed=d.seed;if(d.state)Object.assign(state,d.state);world.day=d.day||1;world.daySeconds=d.daySeconds||0;world.sunLife=d.sunLife??100;world.worldTemp=d.worldTemp??8;
+ // Rebuild resource state deterministically, then apply saved removals and remaining health.
+ const saved=d.objects||[];
+ for(const o of world.objects){let s=saved.find(x=>x.kind===o.kind&&Math.hypot(x.x-o.x,x.z-o.z)<.2);if(!s){o.alive=false;scene.remove(o.mesh)}else o.hp=s.hp}
+ // Restore any saved objects that are not in generated resource set.
+ for(const s of saved){if(s.kind==='crate'){addSupplyCrate();let o=world.objects[world.objects.length-1];o.x=s.x;o.z=s.z;o.mesh.position.set(s.x,0,s.z)}}
+ for(const f of d.fires||[]){const old={wood:state.wood,stone:state.stone};state.wood+=4;state.stone+=2;makeFire();state.wood=old.wood;state.stone=old.stone;const nf=world.fires[world.fires.length-1];if(nf){nf.x=f.x;nf.z=f.z;nf.mesh.position.set(f.x,0,f.z);nf.time=f.time}}
+ for(const e of d.enemies||[])addEnemy(e.x,e.z);
+ if(!world.objects.some(o=>o.kind==='crate'&&o.alive))addSupplyCrate();
+ }catch(e){addSupplyCrate()}
+}
+function resize(){if(!camera||!renderer)return;camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowQuality?1:1.5))}
+function loop(){
+ if(!renderer)return;const dt=Math.min(clock.getDelta(),.05);
+ if(running&&!dead){updateSurvival(dt);movePlayer(dt)}
+ camera.position.lerp(new THREE.Vector3(player.position.x+0,player.position.y+5.2,player.position.z+8.5),.08);camera.lookAt(player.position.x,player.position.y+1,player.position.z);
+ renderer.render(scene,camera);
+}
+function movePlayer(dt){
+ let x=joystick.x,z=joystick.y;
+ if(keys.w||keys.arrowup)z-=1;if(keys.s||keys.arrowdown)z+=1;if(keys.a||keys.arrowleft)x-=1;if(keys.d||keys.arrowright)x+=1;
+ const len=Math.hypot(x,z);if(len>1){x/=len;z/=len}
+ const speed=4.3;state.x=clamp(state.x+x*speed*dt,-100,100);state.z=clamp(state.z+z*speed*dt,-100,100);
+ // Basic collision against living resource props and enemies.
+ for(const o of world.objects){if(!o.alive||o.kind==='bush'||o.kind==='crate'||o.kind==='shelter')continue;let dx=state.x-o.x,dz=state.z-o.z,d=Math.hypot(dx,dz);if(d<.8&&d>0){state.x=o.x+dx/d*.8;state.z=o.z+dz/d*.8}}
+ player.position.set(state.x,0,state.z);if(len>.05)player.rotation.y=Math.atan2(x,z);
+}
+function start(){if(!renderer){init();if(!renderer)return}running=true;dead=false;$('menu').style.display='none';clock.getDelta();message('انطلق! اجمع الموارد وافتح صندوق الإمدادات عند البداية.');}
+$('start').addEventListener('click',start);
+$('reset').addEventListener('click',()=>{try{localStorage.removeItem(SAVE)}catch(e){}location.reload()});
+$('gather').addEventListener('click',interactGather);$('attack').addEventListener('click',attack);$('eat').addEventListener('click',eat);$('drink').addEventListener('click',drink);$('fire').addEventListener('click',makeFire);$('build').addEventListener('click',buildShelter);$('save').addEventListener('click',()=>saveGame(true));
+$('pause').addEventListener('click',()=>{running=false;$('menu').style.display='flex';$('menu').querySelector('h1').textContent='رماد آخر شمس'});
+$('sound').addEventListener('click',()=>{soundOn=!soundOn;$('sound').textContent='الصوت: '+(soundOn?'مفتوح':'مغلق');beep(440)});
+$('quality').addEventListener('click',()=>{lowQuality=!lowQuality;renderer&&renderer.shadowMap&&(renderer.shadowMap.enabled=!lowQuality);resize();$('quality').textContent='الجودة: '+(lowQuality?'أداء أعلى':'تلقائي')});
+window.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e')interactGather();if(e.key===' ')attack();if(e.key.toLowerCase()==='f')eat();if(e.key.toLowerCase()==='r')drink();if(e.key.toLowerCase()==='c')makeFire();if(e.key.toLowerCase()==='b')buildShelter()});
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+const joy=$('joystick'),stick=$('stick');
+function joyStart(e){e.preventDefault();const t=e.changedTouches?e.changedTouches[0]:e;joyTouch=t.identifier??'mouse';joyMove(e)}
+function joyMove(e){if(joyTouch===null)return;e.preventDefault();let t=e.changedTouches?Array.from(e.changedTouches).find(q=>q.identifier===joyTouch):e;if(!t)return;const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=t.clientX-cx,dy=t.clientY-cy,max=r.width*.34,l=Math.hypot(dx,dy),k=l>max?max/l:1;joystick.x=dx*k/max;joystick.y=dy*k/max;stick.style.left=(r.width/2-21+dx*k)+'px';stick.style.top=(r.height/2-21+dy*k)+'px'}
+function joyEnd(e){if(joyTouch===null)return;let match=!e.changedTouches||Array.from(e.changedTouches).some(t=>t.identifier===joyTouch);if(match){joyTouch=null;joystick.x=0;joystick.y=0;stick.style.left=(joy.clientWidth/2-21)+'px';stick.style.top=(joy.clientHeight/2-21)+'px'}}
+joy.addEventListener('touchstart',joyStart,{passive:false});joy.addEventListener('touchmove',joyMove,{passive:false});joy.addEventListener('touchend',joyEnd);joy.addEventListener('touchcancel',joyEnd);
+joy.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){joyTouch='mouse';joyMove(e)}});window.addEventListener('pointermove',e=>{if(joyTouch==='mouse')joyMove(e)});window.addEventListener('pointerup',e=>{if(joyTouch==='mouse')joyEnd(e)});
+window.addEventListener('pagehide',()=>saveGame(false));
+init();
+})();
+</script>
+</body></html>
